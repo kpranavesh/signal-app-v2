@@ -1,6 +1,8 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
+import { useRouter } from "next/navigation";
+import { createClient } from "@/lib/supabase/client";
 
 type AIComfortLevel = "skeptic" | "beginner" | "active" | "power";
 
@@ -417,6 +419,25 @@ function scoreToolForUser(
   return score;
 }
 
+function SignOutButton() {
+  const router = useRouter();
+  async function handleSignOut() {
+    const supabase = createClient();
+    await supabase.auth.signOut();
+    router.push("/login");
+    router.refresh();
+  }
+  return (
+    <button
+      type="button"
+      onClick={handleSignOut}
+      className="shrink-0 rounded-full px-3 py-1.5 text-sm font-medium text-slate-400 hover:text-slate-200 ring-1 ring-slate-700/80 hover:ring-slate-600"
+    >
+      Sign out
+    </button>
+  );
+}
+
 /** Split script into smaller chunks so the first chunk can play in ~1–2s instead of waiting for the full script. */
 function chunkTextForAudio(text: string, maxChunkChars = 500): string[] {
   if (!text.trim()) return [];
@@ -438,6 +459,7 @@ function chunkTextForAudio(text: string, maxChunkChars = 500): string[] {
 export default function Home() {
   const [onboardingStep, setOnboardingStep] = useState(0);
   const [profile, setProfile] = useState<UserProfile | null>(null);
+  const [profileLoading, setProfileLoading] = useState(true);
   const [draftProfile, setDraftProfile] = useState<UserProfile>({
     name: "",
     role: "",
@@ -477,6 +499,34 @@ export default function Home() {
   const audioOverviewBrowserFallbackRef = useRef(false);
 
   useEffect(() => {
+    const controller = new AbortController();
+    async function load() {
+      try {
+        const res = await fetch("/api/profile", { signal: controller.signal, cache: "no-store" });
+        if (!res.ok) return;
+        const data = await res.json();
+        const hasOnboarding = data?.role && data?.industry;
+        if (hasOnboarding) {
+          setProfile({
+            name: data.name ?? "",
+            role: data.role ?? "",
+            industry: data.industry ?? "",
+            comfort: data.comfort ?? "beginner",
+            goals: Array.isArray(data.goals) ? data.goals : ["stay-informed"],
+            aiTools: Array.isArray(data.aiTools) ? data.aiTools : [],
+            topicsMuted: Array.isArray(data.topicsMuted) ? data.topicsMuted : [],
+            topicsBoosted: Array.isArray(data.topicsBoosted) ? data.topicsBoosted : [],
+          });
+        }
+      } finally {
+        setProfileLoading(false);
+      }
+    }
+    void load();
+    return () => controller.abort();
+  }, []);
+
+  useEffect(() => {
     if (!profile) return;
     const controller = new AbortController();
 
@@ -500,16 +550,17 @@ export default function Home() {
           throw new Error("Failed to load briefing");
         }
         const data = await res.json();
-        const items: BriefingItem[] = (data.items || []).map((item: any) => ({
-          id: item.id,
-          title: item.title,
-          topic: item.topic,
-          comfortSummary: item.comfortSummary,
-          whyItMatters: item.whyItMatters,
-          source: item.source,
-          link: item.link,
-          published: item.published,
-          relevanceScore: item.relevanceScore,
+        const rawItems = Array.isArray(data.items) ? data.items : [];
+        const items: BriefingItem[] = rawItems.map((item: any) => ({
+          id: String(item?.id ?? ""),
+          title: String(item?.title ?? ""),
+          topic: String(item?.topic ?? ""),
+          comfortSummary: typeof item?.comfortSummary === "string" ? item.comfortSummary : "",
+          whyItMatters: typeof item?.whyItMatters === "string" ? item.whyItMatters : "",
+          source: item?.source,
+          link: item?.link,
+          published: item?.published ?? null,
+          relevanceScore: item?.relevanceScore,
         }));
         if (!items.length) {
           setBriefingItems(STATIC_BRIEFING_EXAMPLES);
@@ -637,9 +688,21 @@ export default function Home() {
       .map((x) => x.tool);
   }, [showQuizResults, quizCategory, quizBudget]);
 
-  const handleCompleteOnboarding = () => {
-    setProfile(draftProfile);
-    setActiveSection("briefing");
+  const handleCompleteOnboarding = async () => {
+    try {
+      const res = await fetch("/api/profile", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(draftProfile),
+        cache: "no-store",
+      });
+      if (!res.ok) throw new Error("Failed to save profile");
+      setProfile(draftProfile);
+      setActiveSection("briefing");
+    } catch {
+      setProfile(draftProfile);
+      setActiveSection("briefing");
+    }
   };
 
   const handleSendChat = () => {
@@ -708,7 +771,11 @@ export default function Home() {
           )}
         </header>
 
-        {!profile ? (
+        {profileLoading ? (
+          <section className="flex min-h-[40vh] items-center justify-center">
+            <div className="text-slate-400">Loading your profile…</div>
+          </section>
+        ) : !profile ? (
           <section className="grid gap-6 md:grid-cols-[minmax(0,1.2fr),minmax(0,1fr)]">
             <div className="rounded-3xl bg-slate-900/80 p-5 shadow-[0_18px_60px_rgba(15,23,42,0.8)] ring-1 ring-slate-700/80 sm:p-7">
               <div className="mb-4 flex items-center justify-between gap-4">
@@ -976,28 +1043,31 @@ export default function Home() {
           </section>
         ) : (
           <>
-            <nav className="mb-6 flex gap-2 rounded-full bg-slate-900/80 p-1 text-sm ring-1 ring-slate-700/80 sm:text-sm">
-              {[
-                { id: "briefing", label: "Your briefing" },
-                { id: "chat", label: "Ask Signal" },
-                { id: "tools", label: "AI Tool Recommender" },
-              ].map((tab) => (
-                <button
-                  key={tab.id}
-                  type="button"
-                  onClick={() =>
-                    setActiveSection(tab.id as "briefing" | "chat" | "tools")
-                  }
-                  className={`flex-1 rounded-full px-3 py-1.5 font-medium ${
-                    activeSection === tab.id
-                      ? "bg-slate-50 text-slate-950"
-                      : "text-slate-300 hover:text-slate-50"
-                  }`}
-                >
-                  {tab.label}
-                </button>
-              ))}
-            </nav>
+            <div className="mb-6 flex items-center gap-3">
+              <nav className="flex flex-1 gap-2 rounded-full bg-slate-900/80 p-1 text-sm ring-1 ring-slate-700/80 sm:text-sm">
+                {[
+                  { id: "briefing", label: "Your briefing" },
+                  { id: "chat", label: "Ask Signal" },
+                  { id: "tools", label: "AI Tool Recommender" },
+                ].map((tab) => (
+                  <button
+                    key={tab.id}
+                    type="button"
+                    onClick={() =>
+                      setActiveSection(tab.id as "briefing" | "chat" | "tools")
+                    }
+                    className={`flex-1 rounded-full px-3 py-1.5 font-medium ${
+                      activeSection === tab.id
+                        ? "bg-slate-50 text-slate-950"
+                        : "text-slate-300 hover:text-slate-50"
+                    }`}
+                  >
+                    {tab.label}
+                  </button>
+                ))}
+              </nav>
+              <SignOutButton />
+            </div>
 
             {activeSection === "briefing" && (
               <section className="grid flex-1 gap-6 md:grid-cols-[minmax(0,1.3fr),minmax(0,1fr)]">
@@ -1208,9 +1278,9 @@ export default function Home() {
                           </div>
 
                           <p className="mt-2 text-sm leading-relaxed text-slate-300 sm:text-base">
-                            {item.comfortSummary}
+                            {typeof item.comfortSummary === "string" ? item.comfortSummary : ""}
                           </p>
-                          {item.whyItMatters && (
+                          {typeof item.whyItMatters === "string" && item.whyItMatters && (
                             <p className="mt-2 text-sm text-slate-200">
                               <span className="font-medium text-emerald-300">
                                 Why this matters to you:

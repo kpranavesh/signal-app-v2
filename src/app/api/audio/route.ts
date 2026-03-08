@@ -2,6 +2,7 @@ import "server-only";
 
 import { NextResponse } from "next/server";
 import { EdgeTTS } from "edge-tts-universal";
+import { getAuthUser } from "@/lib/supabase/auth";
 
 // Microsoft Edge neural voice — free, no API key.
 // Other options: en-US-AriaNeural (female), en-US-JennyNeural, en-GB-RyanNeural
@@ -21,6 +22,9 @@ function escapeForSsml(text: string): string {
  * Uses edge-tts-universal (updated auth/compat). ElevenLabs backup: see elevenlabs-tts.backup.ts and AUDIO.md.
  */
 export async function POST(req: Request) {
+  const [user, authError] = await getAuthUser();
+  if (authError) return authError;
+
   const { text } = await req.json();
 
   if (!text || typeof text !== "string") {

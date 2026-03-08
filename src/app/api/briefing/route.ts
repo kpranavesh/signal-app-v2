@@ -4,6 +4,7 @@ import Parser from "rss-parser";
 import { unstable_noStore } from "next/cache";
 import { NextResponse } from "next/server";
 import { recommend } from "../../../../recommender/index";
+import { getAuthUser } from "@/lib/supabase/auth";
 
 // Force dynamic rendering — no route-level caching
 export const dynamic = "force-dynamic";
@@ -108,9 +109,10 @@ ${articles.map((a, i) => `${i + 1}. "${a.title}" — ${(a.summary || "").slice(0
     const text = raw.replace(/^```(?:json)?\s*/i, "").replace(/\s*```$/, "").trim();
     const parsed = JSON.parse(text);
     if (Array.isArray(parsed) && parsed.length === n) {
-      return { texts: parsed, source: "claude" };
+      const texts = parsed.map((v: unknown) => (typeof v === "string" ? v : ""));
+      return { texts, source: "claude" };
     }
-    console.error("[briefing] Groq returned wrong array length:", parsed?.length, "expected", n);
+    console.error("[briefing] Groq returned wrong shape/length:", typeof parsed, parsed?.length, "expected", n);
   } catch (err) {
     console.error("[briefing] Groq batch failed:", err instanceof Error ? err.message : err);
   }
@@ -182,7 +184,9 @@ async function loadArticles(): Promise<Article[]> {
 }
 
 export async function GET(req: Request) {
-  // Belt-and-suspenders: opt out of Next.js data cache at handler level too
+  const [user, authError] = await getAuthUser();
+  if (authError) return authError;
+
   unstable_noStore();
 
   const { searchParams } = new URL(req.url);
