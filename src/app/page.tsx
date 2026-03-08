@@ -1,0 +1,1470 @@
+"use client";
+
+import { useEffect, useMemo, useState } from "react";
+
+type AIComfortLevel = "skeptic" | "beginner" | "active" | "power";
+
+type Goal =
+  | "stay-informed"
+  | "find-tools"
+  | "strategic-decisions"
+  | "curiosity";
+
+interface UserProfile {
+  name: string;
+  role: string;
+  industry: string;
+  comfort: AIComfortLevel;
+  goals: Goal[];
+  topicsMuted: string[];
+  topicsBoosted: string[];
+}
+
+interface BriefingItem {
+  id: string;
+  title: string;
+  topic: string;
+  comfortSummary: string;
+  whyItMatters: string;
+  source?: string;
+  link?: string;
+  published?: string | null;
+  tryThis?: string;
+}
+
+interface ChatMessage {
+  id: number;
+  sender: "user" | "signal";
+  text: string;
+  relatedItemId?: string;
+}
+
+type ToolCategory =
+  | "Writing"
+  | "Images"
+  | "Research"
+  | "Data"
+  | "Business"
+  | "Creative"
+  | "Personal";
+
+type BudgetTier = "free" | "20" | "50" | "no-limit";
+
+interface Tool {
+  id: string;
+  name: string;
+  categories: ToolCategory[];
+  description: string;
+  priceTier: BudgetTier;
+  strengths: string;
+  limitations: string;
+  bestFor: string;
+  link: string;
+  rating: number;
+}
+
+const ROLES = [
+  "Marketing manager",
+  "HR / People",
+  "Operations",
+  "Sales / GTM",
+  "Small business owner",
+  "Executive / Leader",
+  "Teacher / Educator",
+  "Healthcare",
+  "Government / Public sector",
+  "Creator / Solo operator",
+];
+
+const INDUSTRIES = [
+  "Technology",
+  "Nonprofit / Social impact",
+  "Education",
+  "Healthcare",
+  "Finance",
+  "Retail / E‑commerce",
+  "Professional services",
+  "Manufacturing",
+  "Government",
+  "Other",
+];
+
+const COMFORT_LEVELS: { value: AIComfortLevel; label: string; subtitle: string }[] =
+  [
+    {
+      value: "skeptic",
+      label: "Skeptic",
+      subtitle: "Not sure AI is for me yet",
+    },
+    {
+      value: "beginner",
+      label: "Curious beginner",
+      subtitle: "Just getting started, want plain English",
+    },
+    {
+      value: "active",
+      label: "Active user",
+      subtitle: "Use AI weekly and want deeper context",
+    },
+    {
+      value: "power",
+      label: "Power user",
+      subtitle: "Comfortable with AI, care about edge cases",
+    },
+  ];
+
+const GOAL_OPTIONS: { value: Goal; label: string }[] = [
+  { value: "stay-informed", label: "Stay on top of AI without the noise" },
+  { value: "find-tools", label: "Find practical tools I can use" },
+  { value: "strategic-decisions", label: "Make smarter strategic decisions" },
+  { value: "curiosity", label: "Feed my general curiosity about AI" },
+];
+
+const TOPICS = [
+  "AI tools for writing",
+  "AI for images & video",
+  "Productivity & automation",
+  "Strategy & industry shifts",
+  "Ethics & regulation",
+  "Chips & infrastructure",
+];
+
+const STATIC_BRIEFING_EXAMPLES: BriefingItem[] = [
+  {
+    id: "static-sora",
+    title: "Sora 2 turns plain‑language prompts into marketing videos",
+    topic: "AI for images & video",
+    comfortSummary:
+      "OpenAI’s Sora 2 lets you create short, polished videos by describing the scene in everyday language instead of editing timelines and layers.",
+    whyItMatters:
+      "For your work, this shrinks the time to test new creative from weeks to hours — without needing an agency or video editor.",
+    tryThis:
+      "Pick one upcoming campaign and storyboard a 15‑second ad in plain language. Use any text‑to‑video tool to generate three versions and share with your team for feedback.",
+  },
+  {
+    id: "static-notes",
+    title: "AI note‑takers are finally good enough for busy teams",
+    topic: "Productivity & automation",
+    comfortSummary:
+      "Modern AI tools can now sit in on your meetings, capture who said what, and give you a clear summary and action list.",
+    whyItMatters:
+      "Most of your impact comes from decisions and follow‑through. Offloading basic note‑taking frees you to focus on the room — and reduces dropped balls.",
+    tryThis:
+      "Choose one recurring meeting this week and pilot an AI note‑taker. Compare its action list with your own and decide whether to roll it out more broadly.",
+  },
+  {
+    id: "static-stack",
+    title: "From “too many tools" to a personal AI stack",
+    topic: "AI tools for writing",
+    comfortSummary:
+      "Instead of trying every new app, many professionals are settling on a simple stack: one main assistant, one writing tool, and one tool for visuals.",
+    whyItMatters:
+      "Choosing one or two tools to go deeper on will beat dabbling in ten different apps.",
+    tryThis:
+      "Use the Tool Recommender below to pick one writing assistant and one creativity tool that fit your budget, then commit to using them for two weeks.",
+  },
+];
+
+const TOOLS: Tool[] = [
+  {
+    id: "claude",
+    name: "Claude",
+    categories: ["Writing", "Research", "Business"],
+    description:
+      "Thoughtful AI assistant that’s strong at long‑form writing, analysis, and working with large documents.",
+    priceTier: "20",
+    strengths:
+      "Great for long documents, nuanced writing, and explaining complex topics in plain English.",
+    limitations:
+      "Not specialized for images or video; best used alongside a dedicated creative tool if visuals matter.",
+    bestFor:
+      "Non‑technical professionals who want help with deep thinking, writing, and decision support.",
+    link: "https://claude.ai",
+    rating: 4.8,
+  },
+  {
+    id: "chatgpt",
+    name: "ChatGPT",
+    categories: ["Writing", "Research", "Personal"],
+    description:
+      "General‑purpose AI assistant that can help with writing, ideation, and everyday questions.",
+    priceTier: "20",
+    strengths:
+      "Very flexible, lots of examples and tutorials online, works well for quick drafting and brainstorming.",
+    limitations:
+      "Can feel generic without clear prompts; not always the best fit for very long or detailed documents.",
+    bestFor:
+      "People who want one familiar ‘do‑most‑things’ assistant to start experimenting with AI.",
+    link: "https://chat.openai.com",
+    rating: 4.6,
+  },
+  {
+    id: "perplexity",
+    name: "Perplexity",
+    categories: ["Research", "Business", "Personal"],
+    description:
+      "AI‑powered research assistant that answers questions with sources you can click and read.",
+    priceTier: "free",
+    strengths:
+      "Great when you want fast, sourced answers instead of reading a dozen tabs. Helpful for market and competitive research.",
+    limitations:
+      "Not a replacement for deep expert review; you still need to sanity‑check important decisions.",
+    bestFor:
+      "Professionals who often research new topics and want quick, sourced overviews instead of generic answers.",
+    link: "https://www.perplexity.ai",
+    rating: 4.7,
+  },
+  {
+    id: "notion-ai",
+    name: "Notion AI",
+    categories: ["Writing", "Business"],
+    description:
+      "AI built into Notion for tidying notes, summarising docs, and turning messy ideas into structure.",
+    priceTier: "20",
+    strengths:
+      "Shines when you already use Notion for docs and task tracking; keeps everything in one place.",
+    limitations:
+      "Less compelling if your team doesn’t live in Notion; not meant as a standalone chat assistant.",
+    bestFor:
+      "Teams and individuals who already use Notion and want AI woven into their existing workflows.",
+    link: "https://www.notion.so/product/ai",
+    rating: 4.4,
+  },
+  {
+    id: "midjourney",
+    name: "Midjourney",
+    categories: ["Images", "Creative"],
+    description:
+      "AI image generator for high‑quality, stylised visuals based on text prompts.",
+    priceTier: "20",
+    strengths:
+      "Produces striking visuals for campaigns, thumbnails, and concept art once you find prompts you like.",
+    limitations:
+      "Requires Discord; not ideal if you want a simple, traditional app experience.",
+    bestFor:
+      "Creators and marketers who care a lot about visual style and are willing to experiment a little.",
+    link: "https://www.midjourney.com",
+    rating: 4.5,
+  },
+  {
+    id: "canva",
+    name: "Canva with AI",
+    categories: ["Images", "Creative", "Business"],
+    description:
+      "Design tool with AI features for turning ideas into slides, social posts, and simple videos.",
+    priceTier: "free",
+    strengths:
+      "Very friendly for non‑designers; great templates and brand kits for small teams.",
+    limitations:
+      "Not as powerful as specialist design suites for complex campaigns.",
+    bestFor:
+      "Small businesses, nonprofits, and solo creators who need good‑looking visuals quickly.",
+    link: "https://www.canva.com",
+    rating: 4.7,
+  },
+  {
+    id: "otter",
+    name: "Otter",
+    categories: ["Business", "Data"],
+    description:
+      "AI note‑taker that records meetings, creates summaries, and pulls out action items.",
+    priceTier: "free",
+    strengths:
+      "Easy way to capture and share meeting notes so nothing falls through the cracks.",
+    limitations:
+      "Best suited to online meetings; quality can drop with very noisy audio.",
+    bestFor:
+      "Busy teams and leaders who want to stop taking manual notes in every meeting.",
+    link: "https://otter.ai",
+    rating: 4.3,
+  },
+  {
+    id: "sheet-ai",
+    name: "AI for spreadsheets",
+    categories: ["Data", "Business"],
+    description:
+      "Helpers like Rows, Hex, and AI‑powered Google Sheets that turn plain‑language questions into formulas and charts.",
+    priceTier: "50",
+    strengths:
+      "Great for people who live in spreadsheets but don’t love complex formulas.",
+    limitations:
+      "Often requires a bit of setup to connect to your data cleanly.",
+    bestFor:
+      "Operators, analysts, and small‑business owners who want data answers without hiring a data team.",
+    link: "https://workspace.google.com/marketplace/category/works-with-docs-sheets",
+    rating: 4.2,
+  },
+];
+
+const BUDGET_LABELS: { value: BudgetTier; label: string }[] = [
+  { value: "free", label: "Free only" },
+  { value: "20", label: "Up to $20 / month" },
+  { value: "50", label: "Up to $50 / month" },
+  { value: "no-limit", label: "Budget isn’t a big concern" },
+];
+
+const REQUIREMENT_OPTIONS = [
+  "Works well on mobile",
+  "Team collaboration features",
+  "Stronger data privacy controls",
+  "Good free tier",
+];
+
+function formatDate(value?: string | null): string | null {
+  if (!value) return null;
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return null;
+  return date.toLocaleDateString(undefined, {
+    month: "short",
+    day: "numeric",
+  });
+}
+
+function generateSignalReply(
+  userText: string,
+  profile: UserProfile | null,
+  relatedItem?: BriefingItem,
+): string {
+  const intro = profile
+    ? `For you as a ${profile.role || "professional"} in ${
+        profile.industry || "your industry"
+      }, `
+    : "";
+
+  if (relatedItem) {
+    return (
+      intro +
+      "here’s how to think about this update:\n\n" +
+      relatedItem.comfortSummary +
+      "\n\nIf you want to make this real, start with one small experiment this week instead of trying to redesign everything at once."
+    );
+  }
+
+  if (userText.toLowerCase().includes("where should i start")) {
+    return (
+      intro +
+      "pick one meaningful but low‑stakes task — like drafting an internal email or summarising a report — and run it through an AI tool. Treat it as a test drive, not a commitment."
+    );
+  }
+
+  if (userText.toLowerCase().includes("explain") && profile?.comfort === "beginner") {
+    return (
+      "Let’s keep it simple: think of AI as a very fast, very eager assistant. It’s great at first drafts and ideas, but you stay in charge of the final decision."
+    );
+  }
+
+  return (
+    intro +
+    "a good rule of thumb is: start small, keep a human in the loop for important decisions, and pay attention to where AI actually saves you time instead of just feeling impressive."
+  );
+}
+
+function scoreToolForUser(
+  tool: Tool,
+  category: ToolCategory | null,
+  budget: BudgetTier | null,
+): number {
+  let score = 0;
+  if (category && tool.categories.includes(category)) {
+    score += 4;
+  }
+
+  if (budget) {
+    const rank: Record<BudgetTier, number> = {
+      free: 0,
+      "20": 1,
+      "50": 2,
+      "no-limit": 3,
+    };
+    if (rank[budget] >= rank[tool.priceTier]) {
+      score += 2;
+    } else {
+      score -= 1;
+    }
+  }
+
+  if (tool.priceTier === "free") {
+    score += 1;
+  }
+
+  return score;
+}
+
+export default function Home() {
+  const [onboardingStep, setOnboardingStep] = useState(0);
+  const [profile, setProfile] = useState<UserProfile | null>(null);
+  const [draftProfile, setDraftProfile] = useState<UserProfile>({
+    name: "",
+    role: "",
+    industry: "",
+    comfort: "beginner",
+    goals: ["stay-informed"],
+    topicsMuted: ["Chips & infrastructure"],
+    topicsBoosted: ["Productivity & automation"],
+  });
+
+  const [activeSection, setActiveSection] = useState<
+    "briefing" | "chat" | "tools"
+  >("briefing");
+
+  const [chatMessages, setChatMessages] = useState<ChatMessage[]>([]);
+  const [chatInput, setChatInput] = useState("");
+  const [selectedItemId, setSelectedItemId] = useState<string | null>(null);
+
+  const [quizStep, setQuizStep] = useState(0);
+  const [quizCategory, setQuizCategory] = useState<ToolCategory | null>(null);
+  const [quizTaskDescription, setQuizTaskDescription] = useState("");
+  const [quizUsedTools, setQuizUsedTools] = useState("");
+  const [quizBudget, setQuizBudget] = useState<BudgetTier | null>("free");
+  const [quizRequirements, setQuizRequirements] = useState<string[]>([]);
+  const [showQuizResults, setShowQuizResults] = useState(false);
+  const [briefingItems, setBriefingItems] = useState<BriefingItem[]>([]);
+  const [briefingLoading, setBriefingLoading] = useState(false);
+  const [briefingError, setBriefingError] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!profile) return;
+    const controller = new AbortController();
+
+    async function load() {
+      setBriefingLoading(true);
+      setBriefingError(null);
+      try {
+        const params = new URLSearchParams({
+          role: profile?.role ?? "",
+          industry: profile?.industry ?? "",
+          comfort: profile?.comfort ?? "beginner",
+        }).toString();
+        const res = await fetch(`/api/briefing?${params}`, {
+          signal: controller.signal,
+        });
+        if (!res.ok) {
+          throw new Error("Failed to load briefing");
+        }
+        const data = await res.json();
+        const items: BriefingItem[] = (data.items || []).map((item: any) => ({
+          id: item.id,
+          title: item.title,
+          topic: item.topic,
+          comfortSummary: item.comfortSummary,
+          whyItMatters: item.whyItMatters,
+          source: item.source,
+          link: item.link,
+          published: item.published,
+        }));
+        if (!items.length) {
+          setBriefingItems(STATIC_BRIEFING_EXAMPLES);
+        } else {
+          setBriefingItems(items);
+        }
+      } catch {
+        setBriefingError(
+          "Signal couldn’t reach its sources right now. Here’s a sample briefing instead.",
+        );
+        setBriefingItems(STATIC_BRIEFING_EXAMPLES);
+      } finally {
+        setBriefingLoading(false);
+      }
+    }
+
+    void load();
+
+    return () => controller.abort();
+  }, [profile]);
+
+  const personalisedBriefing = useMemo(() => {
+    if (!profile) return [] as BriefingItem[];
+    return briefingItems.filter((item) => {
+      const muted = profile.topicsMuted.includes(item.topic);
+      return !muted;
+    });
+  }, [briefingItems, profile]);
+
+  const activeItem = selectedItemId
+    ? personalisedBriefing.find((b) => b.id === selectedItemId) ?? null
+    : null;
+
+  const recommendedTools = useMemo(() => {
+    if (!showQuizResults) return [] as Tool[];
+    return [...TOOLS]
+      .map((tool) => ({
+        tool,
+        score: scoreToolForUser(tool, quizCategory, quizBudget),
+      }))
+      .sort((a, b) => b.score - a.score)
+      .slice(0, 3)
+      .map((x) => x.tool);
+  }, [showQuizResults, quizCategory, quizBudget]);
+
+  const handleCompleteOnboarding = () => {
+    setProfile(draftProfile);
+    setActiveSection("briefing");
+  };
+
+  const handleSendChat = () => {
+    if (!chatInput.trim()) return;
+    const idBase = chatMessages.length ? chatMessages[chatMessages.length - 1].id + 1 : 1;
+    const userMessage: ChatMessage = {
+      id: idBase,
+      sender: "user",
+      text: chatInput.trim(),
+      relatedItemId: activeItem?.id,
+    };
+    const reply: ChatMessage = {
+      id: idBase + 1,
+      sender: "signal",
+      text: generateSignalReply(chatInput, profile, activeItem ?? undefined),
+      relatedItemId: activeItem?.id,
+    };
+    setChatMessages((prev) => [...prev, userMessage, reply]);
+    setChatInput("");
+  };
+
+  const handleToggleRequirement = (label: string) => {
+    setQuizRequirements((prev) =>
+      prev.includes(label) ? prev.filter((r) => r !== label) : [...prev, label],
+    );
+  };
+
+  const handleShowRecommendations = () => {
+    setShowQuizResults(true);
+  };
+
+  return (
+    <div className="min-h-screen bg-gradient-to-b from-slate-950 via-slate-950 to-slate-900 text-slate-50">
+      <div className="mx-auto flex min-h-screen max-w-6xl flex-col px-4 pb-16 pt-10 sm:px-6 lg:px-8 lg:pt-12">
+        <header className="mb-10 flex flex-col gap-4 sm:mb-12 sm:flex-row sm:items-center sm:justify-between">
+          <div>
+            <div className="inline-flex items-center gap-2 rounded-full bg-slate-900/80 px-3 py-1 text-xs font-medium text-slate-300 ring-1 ring-slate-700/80">
+              <span className="h-1.5 w-1.5 rounded-full bg-emerald-400" />
+              Hackathon Prototype · March 7, 2026
+            </div>
+            <h1 className="mt-4 text-3xl font-semibold tracking-tight text-slate-50 sm:text-4xl">
+              Signal — your AI briefing, zero noise.
+            </h1>
+            <p className="mt-2 max-w-xl text-sm text-slate-300 sm:text-base">
+              Drop in your role and comfort level — Signal cuts through the weekly AI
+              noise to show you the 2–3 updates that actually change how you work.
+              Ask it anything, or find the right tools for your life.
+            </p>
+          </div>
+          {profile && (
+            <div className="mt-4 flex items-center gap-3 rounded-2xl bg-slate-900/80 px-4 py-3 text-xs text-slate-200 ring-1 ring-slate-700/80 sm:mt-0">
+              <div className="flex h-8 w-8 items-center justify-center rounded-full bg-emerald-500/10 text-emerald-300">
+                {profile.name ? profile.name.charAt(0).toUpperCase() : "U"}
+              </div>
+              <div>
+                <div className="font-medium">
+                  {profile.name || "Your Signal profile"}
+                </div>
+                <div className="text-slate-400">
+                  {profile.role || "Role not set"} ·{" "}
+                  {COMFORT_LEVELS.find((c) => c.value === profile.comfort)?.label ??
+                    "Beginner"}
+                </div>
+              </div>
+            </div>
+          )}
+        </header>
+
+        {!profile ? (
+          <section className="grid gap-6 md:grid-cols-[minmax(0,1.2fr),minmax(0,1fr)]">
+            <div className="rounded-3xl bg-slate-900/80 p-5 shadow-[0_18px_60px_rgba(15,23,42,0.8)] ring-1 ring-slate-700/80 sm:p-7">
+              <div className="mb-4 flex items-center justify-between gap-4">
+                <div>
+                  <h2 className="text-lg font-semibold text-slate-50 sm:text-xl">
+                    Let's personalise your briefing
+                  </h2>
+                  <p className="mt-1 text-xs text-slate-300 sm:text-sm">
+                    Three quick questions and we'll filter the noise for you.
+                  </p>
+                </div>
+                <div className="flex items-center gap-1 text-xs text-slate-400">
+                  <span>
+                    Step {onboardingStep + 1} of 3
+                  </span>
+                </div>
+              </div>
+
+              {onboardingStep === 0 && (
+                <div className="space-y-6">
+                  <div>
+                    <label className="text-xs font-medium text-slate-200">
+                      What should Signal call you?
+                    </label>
+                    <input
+                      value={draftProfile.name}
+                      onChange={(e) =>
+                        setDraftProfile((p) => ({ ...p, name: e.target.value }))
+                      }
+                      placeholder="First name (optional)"
+                      className="mt-2 w-full rounded-2xl border border-slate-700/80 bg-slate-900/60 px-3 py-2.5 text-sm text-slate-50 placeholder:text-slate-500 focus:border-emerald-400 focus:outline-none focus:ring-1 focus:ring-emerald-500"
+                    />
+                  </div>
+                  <div className="grid gap-4 sm:grid-cols-2">
+                    <div>
+                      <label className="text-xs font-medium text-slate-200">
+                        What do you do?
+                      </label>
+                      <select
+                        value={draftProfile.role}
+                        onChange={(e) =>
+                          setDraftProfile((p) => ({ ...p, role: e.target.value }))
+                        }
+                        className="mt-2 w-full rounded-2xl border border-slate-700/80 bg-slate-900/60 px-3 py-2.5 text-sm text-slate-50 focus:border-emerald-400 focus:outline-none focus:ring-1 focus:ring-emerald-500"
+                      >
+                        <option value="">Select your role</option>
+                        {ROLES.map((role) => (
+                          <option key={role} value={role}>
+                            {role}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+                    <div>
+                      <label className="text-xs font-medium text-slate-200">
+                        What industry are you in?
+                      </label>
+                      <select
+                        value={draftProfile.industry}
+                        onChange={(e) =>
+                          setDraftProfile((p) => ({
+                            ...p,
+                            industry: e.target.value,
+                          }))
+                        }
+                        className="mt-2 w-full rounded-2xl border border-slate-700/80 bg-slate-900/60 px-3 py-2.5 text-sm text-slate-50 focus:border-emerald-400 focus:outline-none focus:ring-1 focus:ring-emerald-500"
+                      >
+                        <option value="">Select your industry</option>
+                        {INDUSTRIES.map((ind) => (
+                          <option key={ind} value={ind}>
+                            {ind}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {onboardingStep === 1 && (
+                <div className="space-y-6">
+                  <div>
+                    <label className="text-xs font-medium text-slate-200">
+                      How comfortable are you with AI today?
+                    </label>
+                    <div className="mt-3 grid gap-3 sm:grid-cols-2">
+                      {COMFORT_LEVELS.map((level) => {
+                        const active = draftProfile.comfort === level.value;
+                        return (
+                          <button
+                            key={level.value}
+                            type="button"
+                            onClick={() =>
+                              setDraftProfile((p) => ({
+                                ...p,
+                                comfort: level.value,
+                              }))
+                            }
+                            className={`flex flex-col items-start rounded-2xl border px-3 py-3 text-left text-xs sm:text-sm ${
+                              active
+                                ? "border-emerald-400 bg-emerald-500/10 text-emerald-100"
+                                : "border-slate-700/80 bg-slate-900/60 text-slate-100 hover:border-slate-500"
+                            }`}
+                          >
+                            <span className="font-medium">{level.label}</span>
+                            <span className="mt-1 text-[11px] text-slate-300 sm:text-xs">
+                              {level.subtitle}
+                            </span>
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+                  <div>
+                    <label className="text-xs font-medium text-slate-200">
+                      Why are you here?
+                    </label>
+                    <div className="mt-3 grid gap-2 sm:grid-cols-2">
+                      {GOAL_OPTIONS.map((goal) => {
+                        const active = draftProfile.goals.includes(goal.value);
+                        return (
+                          <button
+                            key={goal.value}
+                            type="button"
+                            onClick={() =>
+                              setDraftProfile((p) => ({
+                                ...p,
+                                goals: active
+                                  ? p.goals.filter((g) => g !== goal.value)
+                                  : [...p.goals, goal.value],
+                              }))
+                            }
+                            className={`rounded-2xl border px-3 py-2 text-left text-xs sm:text-sm ${
+                              active
+                                ? "border-emerald-400 bg-emerald-500/10 text-emerald-100"
+                                : "border-slate-700/80 bg-slate-900/60 text-slate-100 hover:border-slate-500"
+                            }`}
+                          >
+                            {goal.label}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {onboardingStep === 2 && (
+                <div className="space-y-6">
+                  <div>
+                    <label className="text-xs font-medium text-slate-200">
+                      What should Signal show more or less of?
+                    </label>
+                    <p className="mt-1 text-[11px] text-slate-400">
+                      Boost topics you care about and mute the ones that feel like
+                      noise.
+                    </p>
+                    <div className="mt-3 flex flex-wrap gap-2">
+                      {TOPICS.map((topic) => {
+                        const muted = draftProfile.topicsMuted.includes(topic);
+                        const boosted = draftProfile.topicsBoosted.includes(topic);
+                        return (
+                          <button
+                            key={topic}
+                            type="button"
+                            onClick={() => {
+                              if (muted) {
+                                setDraftProfile((p) => ({
+                                  ...p,
+                                  topicsMuted: p.topicsMuted.filter((t) => t !== topic),
+                                }));
+                              } else if (boosted) {
+                                setDraftProfile((p) => ({
+                                  ...p,
+                                  topicsBoosted: p.topicsBoosted.filter(
+                                    (t) => t !== topic,
+                                  ),
+                                }));
+                              } else {
+                                setDraftProfile((p) => ({
+                                  ...p,
+                                  topicsBoosted: [...p.topicsBoosted, topic],
+                                }));
+                              }
+                            }}
+                            className={`rounded-full border px-3 py-1.5 text-xs ${
+                              boosted
+                                ? "border-emerald-400 bg-emerald-500/10 text-emerald-100"
+                                : muted
+                                  ? "border-slate-600 bg-slate-900/40 text-slate-500 line-through"
+                                  : "border-slate-700/80 bg-slate-900/60 text-slate-100 hover:border-slate-500"
+                            }`}
+                          >
+                            {topic}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              <div className="mt-6 flex items-center justify-between">
+                <button
+                  type="button"
+                  disabled={onboardingStep === 0}
+                  onClick={() =>
+                    setOnboardingStep((s) => (s > 0 ? s - 1 : s))
+                  }
+                  className="text-xs text-slate-400 hover:text-slate-200 disabled:opacity-40"
+                >
+                  Back
+                </button>
+                {onboardingStep < 2 ? (
+                  <button
+                    type="button"
+                    onClick={() =>
+                      setOnboardingStep((s) => (s < 2 ? s + 1 : s))
+                    }
+                    className="inline-flex items-center gap-2 rounded-full bg-emerald-500 px-4 py-2 text-xs font-medium text-slate-950 shadow-lg shadow-emerald-500/40 hover:bg-emerald-400"
+                  >
+                    Next
+                    <span>→</span>
+                  </button>
+                ) : (
+                  <button
+                    type="button"
+                    onClick={handleCompleteOnboarding}
+                    className="inline-flex items-center gap-2 rounded-full bg-emerald-500 px-4 py-2 text-xs font-medium text-slate-950 shadow-lg shadow-emerald-500/40 hover:bg-emerald-400"
+                  >
+                    Generate my Signal
+                    <span>✨</span>
+                  </button>
+                )}
+              </div>
+            </div>
+
+            <div className="flex flex-col justify-between gap-4 rounded-3xl bg-slate-900/60 p-5 ring-1 ring-slate-700/80 sm:p-6">
+              <div>
+                <h3 className="text-sm font-semibold text-slate-50">
+                  What you’ll walk away with
+                </h3>
+                <ul className="mt-3 space-y-2 text-xs text-slate-300">
+                  <li>
+                    <span className="mr-1 text-emerald-400">•</span>
+                    3–5 updates that actually matter to your role — not every headline.
+                  </li>
+                  <li>
+                    <span className="mr-1 text-emerald-400">•</span>
+                    A chat where you can ask “wait, what does this mean for me?" in plain English.
+                  </li>
+                  <li>
+                    <span className="mr-1 text-emerald-400">•</span>
+                    A quick quiz that finds 2–3 AI tools that fit your work and budget.
+                  </li>
+                </ul>
+              </div>
+              <div className="rounded-2xl bg-slate-900/80 px-4 py-3 text-xs text-slate-300 ring-1 ring-slate-700/80">
+                <p className="font-medium text-slate-100">
+                  “There’s a million AI updates a week.
+                </p>
+                <p className="mt-1">
+                  Signal tells you which three actually matter to you — and what
+                  to do about them."
+                </p>
+              </div>
+            </div>
+          </section>
+        ) : (
+          <>
+            <nav className="mb-6 flex gap-2 rounded-full bg-slate-900/80 p-1 text-xs ring-1 ring-slate-700/80 sm:text-sm">
+              {[
+                { id: "briefing", label: "Your briefing" },
+                { id: "chat", label: "Ask Signal" },
+                { id: "tools", label: "AI Tool Recommender" },
+              ].map((tab) => (
+                <button
+                  key={tab.id}
+                  type="button"
+                  onClick={() =>
+                    setActiveSection(tab.id as "briefing" | "chat" | "tools")
+                  }
+                  className={`flex-1 rounded-full px-3 py-1.5 font-medium ${
+                    activeSection === tab.id
+                      ? "bg-slate-50 text-slate-950"
+                      : "text-slate-300 hover:text-slate-50"
+                  }`}
+                >
+                  {tab.label}
+                </button>
+              ))}
+            </nav>
+
+            {activeSection === "briefing" && (
+              <section className="grid flex-1 gap-6 md:grid-cols-[minmax(0,1.3fr),minmax(0,1fr)]">
+                <div className="md:col-span-2 flex flex-col gap-3 rounded-3xl bg-slate-900/80 p-4 ring-1 ring-slate-700/80 sm:flex-row sm:items-center sm:justify-between sm:p-5">
+                  <div>
+                    <h3 className="text-sm font-semibold text-slate-50">🎧 Listen to your briefing</h3>
+                    <p className="mt-1 text-xs text-slate-300">
+                      Rather read it than scroll through it? Hit play and we'll walk you through
+                      today's updates in a few minutes. This prototype uses your browser's built-in
+                      voice — a full build would use{" "}
+                      <a
+                        href="https://github.com/souzatharsis/podcastfy"
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="text-sky-300 hover:text-sky-200"
+                      >
+                        Podcastfy
+                      </a>{" "}
+                      for a proper two-host podcast feel.
+                    </p>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      if (
+                        typeof window === "undefined" ||
+                        typeof window.speechSynthesis === "undefined"
+                      ) {
+                        alert(
+                          "Audio playback is not available in this environment. Try in a modern desktop or mobile browser.",
+                        );
+                        return;
+                      }
+                      const synth = window.speechSynthesis;
+                      synth.cancel();
+                      const text =
+                        personalisedBriefing.length === 0
+                          ? "You do not have any briefing items yet."
+                          : personalisedBriefing
+                              .map(
+                                (item, index) =>
+                                  `Update ${index + 1}. ${item.title}. ${
+                                    item.comfortSummary
+                                  } Why this matters: ${item.whyItMatters}.`,
+                              )
+                              .join(
+                                " Next, here is another update that matters to you. ",
+                              );
+                      const utterance = new SpeechSynthesisUtterance(text);
+                      utterance.rate = 1;
+                      utterance.pitch = 1;
+                      synth.speak(utterance);
+                    }}
+                    className="shrink-0 inline-flex items-center gap-2 rounded-full bg-emerald-500 px-5 py-2 text-xs font-semibold text-slate-950 shadow-md shadow-emerald-500/40 hover:bg-emerald-400 sm:text-sm"
+                  >
+                    ▶ Play audio overview
+                  </button>
+                </div>
+                <div className="rounded-3xl bg-slate-900/80 p-5 ring-1 ring-slate-700/80 sm:p-6">
+                  <div className="mb-4 flex items-center justify-between gap-3">
+                    <div>
+                      <h2 className="text-sm font-semibold text-slate-50 sm:text-base">
+                        Here’s what matters today
+                      </h2>
+                      <p className="mt-1 text-xs text-slate-400">
+                        Picked for {profile.role || "you"} in{" "}
+                        {profile.industry || "your industry"} — tuned to your level.
+                      </p>
+                    </div>
+                    <span className="rounded-full bg-emerald-500/10 px-3 py-1 text-[11px] font-medium text-emerald-300">
+                      {personalisedBriefing.length || 3} items · ~10 minutes
+                    </span>
+                  </div>
+                  {briefingLoading && (
+                    <p className="text-sm text-slate-300">
+                      Pulling in fresh AI updates that match your profile…
+                    </p>
+                  )}
+                  {!briefingLoading && briefingError && (
+                    <p className="mb-3 text-xs text-amber-300">{briefingError}</p>
+                  )}
+                  {!briefingLoading && personalisedBriefing.length === 0 && (
+                    <p className="text-sm text-slate-300">
+                      Your profile is a bit niche, so we’re still learning what
+                      matters most. For now, you’ll see a general briefing based on
+                      popular topics for people like you.
+                    </p>
+                  )}
+                  {!briefingLoading && personalisedBriefing.length > 0 && (
+                    <div className="space-y-4">
+                      {personalisedBriefing.map((item, index) => (
+                        <article
+                          key={item.id}
+                          className="rounded-2xl border border-slate-700/80 bg-slate-900/60 p-4 text-sm"
+                        >
+                          <div className="mb-1 flex items-center justify-between gap-3">
+                            <div className="inline-flex items-center gap-2 text-[11px] text-slate-400">
+                              <span className="flex h-6 w-6 items-center justify-center rounded-full bg-slate-900 text-[11px] text-slate-200">
+                                {index + 1}
+                              </span>
+                              <span>{item.topic}</span>
+                              {item.source && (
+                                <span className="rounded-full bg-slate-800 px-2 py-0.5 text-[10px] uppercase tracking-wide">
+                                  {item.source}
+                                </span>
+                              )}
+                              {item.published && (
+                                <span className="text-slate-500">
+                                  {formatDate(item.published)}
+                                </span>
+                              )}
+                            </div>
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setSelectedItemId(item.id);
+                                setActiveSection("chat");
+                              }}
+                              className="rounded-full bg-slate-800 px-3 py-1 text-[11px] text-slate-100 hover:bg-slate-700"
+                            >
+                              Ask Signal about this
+                            </button>
+                          </div>
+                          <h3 className="text-sm font-semibold text-slate-50">
+                            {item.title}
+                          </h3>
+                          <p className="mt-2 text-xs text-slate-300 sm:text-sm">
+                            {item.comfortSummary}
+                          </p>
+                          <p className="mt-2 text-xs text-slate-200">
+                            <span className="font-medium text-emerald-300">
+                              Why this matters to you:
+                            </span>{" "}
+                            {item.whyItMatters}
+                          </p>
+                          {item.tryThis && (
+                            <p className="mt-2 text-xs text-slate-300">
+                              <span className="font-medium text-sky-300">
+                                Try this:
+                              </span>{" "}
+                              {item.tryThis}
+                            </p>
+                          )}
+                          <div className="mt-3 flex flex-wrap items-center gap-2 text-[11px] text-slate-400">
+                            <button
+                              type="button"
+                              className="rounded-full bg-slate-800 px-3 py-1 hover:bg-slate-700"
+                            >
+                              This was useful
+                            </button>
+                            <button
+                              type="button"
+                              className="rounded-full bg-slate-900 px-3 py-1 ring-1 ring-slate-700 hover:bg-slate-800"
+                            >
+                              Not relevant
+                            </button>
+                            {item.link && (
+                              <a
+                                href={item.link}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="inline-flex items-center gap-1 text-sky-300 hover:text-sky-200"
+                              >
+                                Read source ↗
+                              </a>
+                            )}
+                          </div>
+                        </article>
+                      ))}
+                    </div>
+                  )}
+                </div>
+
+                <div className="rounded-3xl bg-slate-900/80 p-4 text-xs text-slate-300 ring-1 ring-slate-700/80">
+                  <p className="font-medium text-slate-100">
+                    One thing to try this week
+                  </p>
+                  <p className="mt-1">
+                    Don’t try to "learn AI" all at once. Pick one meeting, one
+                    doc, or one email where you think AI could help — and just
+                    try it there. That’s your whole experiment for the week.
+                  </p>
+                </div>
+              </section>
+            )}
+
+            {activeSection === "chat" && (
+              <section className="grid flex-1 gap-6 md:grid-cols-[minmax(0,1.1fr),minmax(0,1fr)]">
+                <div className="flex flex-col rounded-3xl bg-slate-900/80 p-5 ring-1 ring-slate-700/80 sm:p-6">
+                  <div className="mb-3">
+                    <h2 className="text-sm font-semibold text-slate-50 sm:text-base">
+                      Got questions? Ask Signal anything.
+                    </h2>
+                    <p className="mt-1 text-xs text-slate-400">
+                      No jargon, no judgment. “What does this mean for my job?" is
+                      a great place to start.
+                    </p>
+                  </div>
+                  <div className="flex-1 space-y-3 overflow-y-auto rounded-2xl bg-slate-950/60 p-3 text-xs sm:p-4 sm:text-sm">
+                    {chatMessages.length === 0 && (
+                      <div className="rounded-2xl border border-dashed border-slate-700/80 bg-slate-900/60 p-4 text-xs text-slate-300">
+                        <p>
+                          Try asking:{" "}
+                          <span className="font-medium text-slate-100">
+                            “Where should I start with AI given my role?"
+                          </span>{" "}
+                          or{" "}
+                          <span className="font-medium text-slate-100">
+                            “Explain the first briefing item like I’m brand new to
+                            AI."
+                          </span>
+                        </p>
+                      </div>
+                    )}
+                    {chatMessages.map((msg) => (
+                      <div
+                        key={msg.id}
+                        className={`flex ${
+                          msg.sender === "user" ? "justify-end" : "justify-start"
+                        }`}
+                      >
+                        <div
+                          className={`max-w-[80%] rounded-2xl px-3 py-2 ${
+                            msg.sender === "user"
+                              ? "bg-emerald-500 text-slate-950"
+                              : "bg-slate-800 text-slate-50"
+                          }`}
+                        >
+                          {msg.text}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                  <div className="mt-3 flex items-end gap-2">
+                    <textarea
+                      rows={2}
+                      value={chatInput}
+                      onChange={(e) => setChatInput(e.target.value)}
+                      placeholder="Ask Signal a question in plain English..."
+                      className="min-h-[48px] flex-1 resize-none rounded-2xl border border-slate-700/80 bg-slate-950/60 px-3 py-2 text-xs text-slate-50 placeholder:text-slate-500 focus:border-emerald-400 focus:outline-none focus:ring-1 focus:ring-emerald-500 sm:text-sm"
+                    />
+                    <button
+                      type="button"
+                      onClick={handleSendChat}
+                      className="inline-flex h-10 items-center justify-center rounded-2xl bg-emerald-500 px-3 text-xs font-semibold text-slate-950 shadow-md shadow-emerald-500/40 hover:bg-emerald-400 sm:px-4 sm:text-sm"
+                    >
+                      Send
+                    </button>
+                  </div>
+                </div>
+
+                <div className="space-y-4">
+                  <div className="rounded-3xl bg-slate-900/80 p-5 ring-1 ring-slate-700/80 sm:p-6">
+                    <h3 className="text-sm font-semibold text-slate-50">
+                      Context Signal already knows
+                    </h3>
+                    <ul className="mt-2 space-y-1 text-xs text-slate-300">
+                      <li>
+                        <span className="mr-1 text-emerald-400">•</span>
+                        Your role: {profile.role || "not set"}
+                      </li>
+                      <li>
+                        <span className="mr-1 text-emerald-400">•</span>
+                        Industry: {profile.industry || "not set"}
+                      </li>
+                      <li>
+                        <span className="mr-1 text-emerald-400">•</span>
+                        Comfort level:{" "}
+                        {
+                          COMFORT_LEVELS.find((c) => c.value === profile.comfort)
+                            ?.label
+                        }
+                      </li>
+                      <li>
+                        <span className="mr-1 text-emerald-400">•</span>
+                        Goals:{" "}
+                        {profile.goals.length
+                          ? profile.goals
+                              .map(
+                                (g) =>
+                                  GOAL_OPTIONS.find((o) => o.value === g)?.label ??
+                                  g,
+                              )
+                              .join(", ")
+                          : "not set"}
+                      </li>
+                    </ul>
+                    <p className="mt-3 text-xs text-slate-400">
+                      You don’t need to re‑explain this each time — Signal carries
+                      it through the conversation.
+                    </p>
+                  </div>
+                  <div className="rounded-3xl bg-slate-900/80 p-5 ring-1 ring-slate-700/80 sm:p-6">
+                    <h3 className="text-sm font-semibold text-slate-50">
+                      Jump in from a briefing item
+                    </h3>
+                    <p className="mt-1 text-xs text-slate-300">
+                      Choose something from today’s briefing to ask about:
+                    </p>
+                    <div className="mt-3 space-y-2">
+                      {personalisedBriefing.map((item) => (
+                        <button
+                          key={item.id}
+                          type="button"
+                          onClick={() => {
+                            setSelectedItemId(item.id);
+                            const seed: ChatMessage = {
+                              id: chatMessages.length
+                                ? chatMessages[chatMessages.length - 1].id + 1
+                                : 1,
+                              sender: "signal",
+                              text:
+                                "You tapped into: “" +
+                                item.title +
+                                "”. Ask me what this really means for your work or how you could test it this week.",
+                              relatedItemId: item.id,
+                            };
+                            setChatMessages((prev) => [...prev, seed]);
+                          }}
+                          className={`w-full rounded-2xl border px-3 py-2 text-left text-xs sm:text-sm ${
+                            selectedItemId === item.id
+                              ? "border-emerald-400 bg-emerald-500/10 text-emerald-100"
+                              : "border-slate-700/80 bg-slate-900/60 text-slate-100 hover:border-slate-500"
+                          }`}
+                        >
+                          <span className="block font-medium">{item.title}</span>
+                          <span className="mt-1 block text-[11px] text-slate-400">
+                            {item.topic}
+                          </span>
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+              </section>
+            )}
+
+            {activeSection === "tools" && (
+              <section className="grid flex-1 gap-6 md:grid-cols-[minmax(0,1.1fr),minmax(0,1fr)]">
+                <div className="rounded-3xl bg-slate-900/80 p-5 ring-1 ring-slate-700/80 sm:p-6">
+                  <div className="mb-3 flex items-center justify-between gap-3">
+                    <div>
+                      <h2 className="text-sm font-semibold text-slate-50 sm:text-base">
+                        Personalized AI Tool Recommender
+                      </h2>
+                      <p className="mt-1 text-xs text-slate-400">
+                        A short, conversational quiz that suggests 2–3 tools for
+                        what you actually need right now.
+                      </p>
+                    </div>
+                    <span className="rounded-full bg-slate-800 px-3 py-1 text-[11px] text-slate-200">
+                      4 quick questions
+                    </span>
+                  </div>
+
+                  <div className="space-y-5">
+                    {quizStep === 0 && (
+                      <div className="space-y-3">
+                        <p className="text-xs font-medium text-slate-200">
+                          1. What do you want to use AI for first?
+                        </p>
+                        <div className="grid gap-2 sm:grid-cols-2">
+                          {[
+                            "Writing",
+                            "Images",
+                            "Research",
+                            "Data",
+                            "Business",
+                            "Creative",
+                            "Personal",
+                          ].map((category) => {
+                            const value = category as ToolCategory;
+                            const active = quizCategory === value;
+                            return (
+                              <button
+                                key={category}
+                                type="button"
+                                onClick={() => setQuizCategory(value)}
+                                className={`rounded-2xl border px-3 py-2 text-left text-xs sm:text-sm ${
+                                  active
+                                    ? "border-emerald-400 bg-emerald-500/10 text-emerald-100"
+                                    : "border-slate-700/80 bg-slate-900/60 text-slate-100 hover:border-slate-500"
+                                }`}
+                              >
+                                {category}
+                              </button>
+                            );
+                          })}
+                        </div>
+                      </div>
+                    )}
+
+                    {quizStep === 1 && (
+                      <div className="space-y-3">
+                        <p className="text-xs font-medium text-slate-200">
+                          2. Describe a specific task in plain English.
+                        </p>
+                        <textarea
+                          rows={3}
+                          value={quizTaskDescription}
+                          onChange={(e) => setQuizTaskDescription(e.target.value)}
+                          placeholder='For example: “Draft better cold outreach emails to potential partners.”'
+                          className="w-full rounded-2xl border border-slate-700/80 bg-slate-950/60 px-3 py-2 text-xs text-slate-50 placeholder:text-slate-500 focus:border-emerald-400 focus:outline-none focus:ring-1 focus:ring-emerald-500 sm:text-sm"
+                        />
+                        <p className="text-[11px] text-slate-400">
+                          The clearer you are here, the more specific the
+                          recommendation can be.
+                        </p>
+                      </div>
+                    )}
+
+                    {quizStep === 2 && (
+                      <div className="space-y-3">
+                        <p className="text-xs font-medium text-slate-200">
+                          3. Have you used any AI tools before?
+                        </p>
+                        <textarea
+                          rows={2}
+                          value={quizUsedTools}
+                          onChange={(e) => setQuizUsedTools(e.target.value)}
+                          placeholder='For example: “I’ve tried ChatGPT but found the answers too generic.”'
+                          className="w-full rounded-2xl border border-slate-700/80 bg-slate-950/60 px-3 py-2 text-xs text-slate-50 placeholder:text-slate-500 focus:border-emerald-400 focus:outline-none focus:ring-1 focus:ring-emerald-500 sm:text-sm"
+                        />
+                        <p className="text-[11px] text-slate-400">
+                          This helps avoid recommending something you already know
+                          you don’t like.
+                        </p>
+                      </div>
+                    )}
+
+                    {quizStep === 3 && (
+                      <div className="space-y-4">
+                        <div>
+                          <p className="text-xs font-medium text-slate-200">
+                            4. Budget and must‑haves
+                          </p>
+                          <div className="mt-2 grid gap-2 sm:grid-cols-2">
+                            {BUDGET_LABELS.map((budget) => {
+                              const active = quizBudget === budget.value;
+                              return (
+                                <button
+                                  key={budget.value}
+                                  type="button"
+                                  onClick={() => setQuizBudget(budget.value)}
+                                  className={`rounded-2xl border px-3 py-2 text-left text-xs sm:text-sm ${
+                                    active
+                                      ? "border-emerald-400 bg-emerald-500/10 text-emerald-100"
+                                      : "border-slate-700/80 bg-slate-900/60 text-slate-100 hover:border-slate-500"
+                                  }`}
+                                >
+                                  {budget.label}
+                                </button>
+                              );
+                            })}
+                          </div>
+                        </div>
+                        <div>
+                          <p className="text-xs font-medium text-slate-200">
+                            Any special requirements?
+                          </p>
+                          <div className="mt-2 flex flex-wrap gap-2">
+                            {REQUIREMENT_OPTIONS.map((req) => {
+                              const active = quizRequirements.includes(req);
+                              return (
+                                <button
+                                  key={req}
+                                  type="button"
+                                  onClick={() => handleToggleRequirement(req)}
+                                  className={`rounded-full border px-3 py-1.5 text-[11px] ${
+                                    active
+                                      ? "border-sky-400 bg-sky-500/10 text-sky-100"
+                                      : "border-slate-700/80 bg-slate-900/60 text-slate-100 hover:border-slate-500"
+                                  }`}
+                                >
+                                  {req}
+                                </button>
+                              );
+                            })}
+                          </div>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+
+                  <div className="mt-6 flex items-center justify-between">
+                    <button
+                      type="button"
+                      disabled={quizStep === 0}
+                      onClick={() =>
+                        setQuizStep((s) => (s > 0 ? s - 1 : s))
+                      }
+                      className="text-xs text-slate-400 hover:text-slate-200 disabled:opacity-40"
+                    >
+                      Back
+                    </button>
+                    {quizStep < 3 ? (
+                      <button
+                        type="button"
+                        onClick={() =>
+                          setQuizStep((s) => (s < 3 ? s + 1 : s))
+                        }
+                        className="inline-flex items-center gap-2 rounded-full bg-slate-50 px-4 py-2 text-xs font-semibold text-slate-950 hover:bg-slate-200 sm:text-sm"
+                      >
+                        Next
+                        <span>→</span>
+                      </button>
+                    ) : (
+                      <button
+                        type="button"
+                        onClick={handleShowRecommendations}
+                        className="inline-flex items-center gap-2 rounded-full bg-emerald-500 px-4 py-2 text-xs font-semibold text-slate-950 shadow-lg shadow-emerald-500/40 hover:bg-emerald-400 sm:text-sm"
+                      >
+                        See my recommendations
+                        <span>✨</span>
+                      </button>
+                    )}
+                  </div>
+                </div>
+
+                <div className="space-y-4">
+                  <div className="rounded-3xl bg-slate-900/80 p-5 ring-1 ring-slate-700/80 sm:p-6">
+                    <h3 className="text-sm font-semibold text-slate-50">
+                      Your recommended tools
+                    </h3>
+                    {!showQuizResults ? (
+                      <p className="mt-2 text-xs text-slate-300">
+                        Answer the questions on the left and Signal will suggest a
+                        short list of tools that make sense for your first (or next)
+                        use case.
+                      </p>
+                    ) : (
+                      <div className="mt-3 space-y-3">
+                        {recommendedTools.map((tool) => (
+                          <article
+                            key={tool.id}
+                            className="rounded-2xl border border-slate-700/80 bg-slate-900/60 p-4 text-xs sm:text-sm"
+                          >
+                            <div className="flex items-center justify-between gap-3">
+                              <div>
+                                <h4 className="font-semibold text-slate-50">
+                                  {tool.name}
+                                </h4>
+                                <p className="mt-1 text-[11px] uppercase tracking-wide text-slate-400">
+                                  {tool.categories.join(" · ")}
+                                </p>
+                              </div>
+                              <div className="text-right text-[11px] text-slate-300">
+                                <div>
+                                  {tool.priceTier === "free"
+                                    ? "Great free tier"
+                                    : tool.priceTier === "20"
+                                      ? "≈ $20 / month"
+                                      : tool.priceTier === "50"
+                                        ? "≈ $50 / month"
+                                        : "Flexible pricing"}
+                                </div>
+                                <div className="mt-1 text-amber-300">
+                                  ★ {tool.rating.toFixed(1)}
+                                </div>
+                              </div>
+                            </div>
+                            <p className="mt-2 text-slate-300">
+                              {tool.description}
+                            </p>
+                            <p className="mt-2 text-slate-200">
+                              <span className="font-medium text-emerald-300">
+                                Why Signal picked this:
+                              </span>{" "}
+                              {tool.bestFor}
+                            </p>
+                            <p className="mt-2 text-[11px] text-slate-400">
+                              <span className="font-medium">Strengths:</span>{" "}
+                              {tool.strengths}
+                            </p>
+                            <p className="mt-1 text-[11px] text-slate-400">
+                              <span className="font-medium">Limitations:</span>{" "}
+                              {tool.limitations}
+                            </p>
+                            <a
+                              href={tool.link}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="mt-3 inline-flex text-[11px] font-medium text-emerald-300 hover:text-emerald-200"
+                            >
+                              Open getting‑started guide ↗
+                            </a>
+                          </article>
+                        ))}
+                        {recommendedTools.length === 0 && (
+                          <p className="text-xs text-slate-300">
+                            Your answers are quite broad, so Signal would likely
+                            suggest starting with a general‑purpose assistant like
+                            Claude or ChatGPT, then layering on a research or image
+                            tool once you’re comfortable.
+                          </p>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                </div>
+              </section>
+            )}
+          </>
+        )}
+      </div>
+    </div>
+  );
+}
