@@ -22,12 +22,7 @@ This project uses [`next/font`](https://nextjs.org/docs/app/building-your-applic
 
 ## Audio overview (TTS)
 
-The briefing “Play audio overview” uses **Edge TTS** by default (free, no API key). To use **ElevenLabs** instead, set in `.env.local` or Vercel env:
-
-- `AUDIO_TTS_PROVIDER=elevenlabs`
-- `ELEVENLABS_API_KEY=sk_...`
-
-See [AUDIO.md](./AUDIO.md) for details.
+The briefing “Play audio overview” uses **Microsoft Edge TTS** only (free, no API key). To re-enable ElevenLabs later, see [AUDIO.md](./AUDIO.md).
 
 ## Learn More
 

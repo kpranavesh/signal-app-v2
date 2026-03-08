@@ -27,14 +27,25 @@ type AIComfortLevel = "skeptic" | "beginner" | "active" | "power";
 const parser = new Parser({ timeout: 8000 });
 
 const FEEDS = [
-  { id: "openai",          url: "https://openai.com/news/rss.xml",                          topic: "Models & assistants"  },
-  { id: "anthropic",       url: "https://anthropic.com/news/feed_anthropic.xml",             topic: "Safety & Claude"      },
-  { id: "google-ai",       url: "http://feeds.feedburner.com/blogspot/gJZg",                 topic: "Google AI & research" },
-  { id: "techcrunch",      url: "https://techcrunch.com/category/artificial-intelligence/feed/", topic: "Industry news"    },
-  { id: "mit-tech-review", url: "https://www.technologyreview.com/feed/",                    topic: "Policy & society"     },
-  { id: "the-markup",      url: "https://themarkup.org/feeds/rss.xml",                       topic: "AI accountability"    },
-  { id: "venturebeat",     url: "https://venturebeat.com/category/ai/feed",                  topic: "Industry news"        },
-  { id: "edsurge",         url: "https://www.edsurge.com/news.rss",                          topic: "Education technology" },
+  // AI company blogs
+  { id: "openai",          url: "https://openai.com/news/rss.xml",                               topic: "Models & assistants"    },
+  { id: "anthropic",       url: "https://anthropic.com/news/feed_anthropic.xml",                  topic: "Safety & Claude"        },
+  { id: "google-ai",       url: "http://feeds.feedburner.com/blogspot/gJZg",                      topic: "Google AI & research"   },
+  // Broad industry
+  { id: "techcrunch",      url: "https://techcrunch.com/category/artificial-intelligence/feed/",  topic: "Industry news"          },
+  { id: "the-verge",       url: "https://www.theverge.com/rss/index.xml",                         topic: "Industry news"          },
+  { id: "venturebeat",     url: "https://venturebeat.com/category/ai/feed",                       topic: "Industry news"          },
+  // Policy & accountability
+  { id: "mit-tech-review", url: "https://www.technologyreview.com/feed/",                         topic: "Policy & society"       },
+  { id: "the-markup",      url: "https://themarkup.org/feeds/rss.xml",                            topic: "AI accountability"      },
+  // Design & creative
+  { id: "wired-design",    url: "https://www.wired.com/feed/category/design/latest/rss",          topic: "Design & creative tools"},
+  { id: "creativebloq",    url: "https://www.creativebloq.com/feeds/all.xml",                     topic: "Design & creative tools"},
+  // Media & entertainment
+  { id: "variety",         url: "https://variety.com/feed/",                                      topic: "Media & entertainment"  },
+  { id: "deadline",        url: "https://deadline.com/feed/",                                     topic: "Media & entertainment"  },
+  // Education
+  { id: "edsurge",         url: "https://www.edsurge.com/news.rss",                               topic: "Education technology"   },
 ];
 
 interface Article {

@@ -71,7 +71,12 @@ export const INDUSTRY_KEYWORDS: Record<string, string[]> = {
   "Media / Marketing / Creative": [
     "marketing", "advertising", "content", "creative", "media",
     "brand", "campaign", "social media", "seo", "copywriting",
-    "image generation", "video", "design",
+    "image generation", "video", "design", "figma", "adobe",
+    "entertainment", "film", "music", "streaming", "hollywood",
+    "production", "studio", "animation", "visual", "generative art",
+    "midjourney", "stable diffusion", "dall-e", "sora",
+    "creator", "influencer", "content creation", "narrative",
+    "intellectual property", "copyright", "licensing",
   ],
   "Education / Research": [
     "education", "university", "research", "academic", "students",

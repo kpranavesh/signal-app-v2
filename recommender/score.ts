@@ -136,6 +136,22 @@ export function scoreArticle(
     }
   }
 
+  if (role.includes("design")) {
+    const DESIGN_KEYWORDS = [
+      "design", "figma", "adobe", "ux", "ui", "creative", "visual",
+      "generative art", "image generation", "midjourney", "dall-e", "sora",
+      "stable diffusion", "animation", "illustration", "typography",
+      "film", "entertainment", "streaming", "music", "video", "production",
+      "copyright", "intellectual property", "creator", "content creation",
+    ];
+    if (contains(corpus, DESIGN_KEYWORDS)) {
+      factors.push({ factor: "role:design — creative/design content match", points: 15 });
+    }
+    if (isTechnical && !contains(corpus, DESIGN_KEYWORDS)) {
+      factors.push({ factor: "role:design — pure technical penalty", points: -10 });
+    }
+  }
+
   if (role.includes("legal") || role.includes("compliance")) {
     if (contains(corpus, LEGAL_KEYWORDS)) {
       factors.push({ factor: "role:legal — policy/compliance content match", points: 15 });
