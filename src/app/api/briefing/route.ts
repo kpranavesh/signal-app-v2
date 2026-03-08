@@ -4,6 +4,9 @@ import Parser from "rss-parser";
 import { NextResponse } from "next/server";
 import { recommend } from "../../../../recommender/index";
 
+// Disable Next.js route caching — profile params must vary the response
+export const dynamic = "force-dynamic";
+
 type AIComfortLevel = "skeptic" | "beginner" | "active" | "power";
 
 const parser = new Parser({
@@ -204,6 +207,9 @@ export async function GET(req: Request) {
     }),
   }));
 
-  return NextResponse.json({ items });
+  return NextResponse.json(
+    { items, _debug: { role, industry, comfort, goal, aiTools } },
+    { headers: { "Cache-Control": "no-store" } },
+  );
 }
 
