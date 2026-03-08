@@ -572,8 +572,7 @@ export default function Home() {
           return r.arrayBuffer();
         })
         .then((buf) => {
-          const url = URL.createObjectURL(new Blob([buf], { type: "audio/mpeg" }));
-          nextStreamUrlRef.current = url;
+          nextStreamUrlRef.current = URL.createObjectURL(new Blob([buf], { type: "audio/mpeg" }));
         })
         .catch(() => { nextStreamUrlRef.current = null; });
     }
@@ -1006,7 +1005,7 @@ export default function Home() {
                     <h3 className="text-sm font-semibold text-slate-50">🎧 Listen to your briefing</h3>
                     <p className="mt-1 text-sm text-slate-300">
                       Rather read it than scroll through it? Hit play and we'll walk you through
-                      today's updates with ElevenLabs voice (Titan-style). Play or pause anytime.
+                      today's updates with a natural-sounding voice. Play or pause anytime.
                     </p>
                   </div>
                   <audio
@@ -1061,10 +1060,11 @@ export default function Home() {
                           throw new Error(err?.error || `Audio failed: ${res.status}`);
                         }
                         if (!contentType.includes("audio/")) {
-                          throw new Error("Server did not return audio. Check ELEVENLABS_API_KEY on Vercel.");
+                          throw new Error("Server did not return audio. Try again.");
                         }
                         const buf = await res.arrayBuffer();
-                        const url = URL.createObjectURL(new Blob([buf], { type: "audio/mpeg" }));
+                        const mime = contentType.includes("audio/") ? contentType.split(";")[0].trim() : "audio/mpeg";
+                        const url = URL.createObjectURL(new Blob([buf], { type: mime }));
                         if (audioOverviewUrlRef.current) URL.revokeObjectURL(audioOverviewUrlRef.current);
                         audioOverviewUrlRef.current = url;
                         const audioEl = audioOverviewRef.current;

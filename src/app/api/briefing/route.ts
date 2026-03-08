@@ -1,6 +1,5 @@
 import "server-only";
 
-import Anthropic from "@anthropic-ai/sdk";
 import Parser from "rss-parser";
 import { unstable_noStore } from "next/cache";
 import { NextResponse } from "next/server";
@@ -77,22 +76,32 @@ Articles:
 ${articles.map((a, i) => `${i + 1}. "${a.title}" — ${(a.summary || "").slice(0, 160)}`).join("\n")}`;
 
   try {
-    const client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
-    const message = await client.messages.create({
-      model: "claude-haiku-4-5-20251001",
-      max_tokens: 1024,
-      messages: [{ role: "user", content: prompt }],
+    const res = await fetch("https://api.groq.com/openai/v1/chat/completions", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${process.env.GROQ_API_KEY}`,
+      },
+      body: JSON.stringify({
+        model: "llama-3.1-8b-instant",
+        max_tokens: 1024,
+        messages: [{ role: "user", content: prompt }],
+      }),
+      // Don't let Next.js cache this outbound fetch
+      cache: "no-store",
     });
-    const raw = message.content[0].type === "text" ? message.content[0].text.trim() : "";
-    // Strip markdown code fences if Haiku wraps the JSON
+    if (!res.ok) throw new Error(`Groq ${res.status}: ${await res.text()}`);
+    const data = await res.json();
+    const raw: string = data.choices?.[0]?.message?.content?.trim() ?? "";
+    // Strip markdown code fences if the model wraps the JSON
     const text = raw.replace(/^```(?:json)?\s*/i, "").replace(/\s*```$/, "").trim();
     const parsed = JSON.parse(text);
     if (Array.isArray(parsed) && parsed.length === n) {
       return { texts: parsed, source: "claude" };
     }
-    console.error("[briefing] Haiku returned wrong array length:", parsed.length, "expected", n);
+    console.error("[briefing] Groq returned wrong array length:", parsed?.length, "expected", n);
   } catch (err) {
-    console.error("[briefing] Haiku batch failed:", err instanceof Error ? err.message : err);
+    console.error("[briefing] Groq batch failed:", err instanceof Error ? err.message : err);
   }
 
   // Rule-based fallback — still role-aware

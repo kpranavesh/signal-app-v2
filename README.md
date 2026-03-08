@@ -20,6 +20,15 @@ You can start editing the page by modifying `app/page.tsx`. The page auto-update
 
 This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
 
+## Audio overview (TTS)
+
+The briefing “Play audio overview” uses **Edge TTS** by default (free, no API key). To use **ElevenLabs** instead, set in `.env.local` or Vercel env:
+
+- `AUDIO_TTS_PROVIDER=elevenlabs`
+- `ELEVENLABS_API_KEY=sk_...`
+
+See [AUDIO.md](./AUDIO.md) for details.
+
 ## Learn More
 
 To learn more about Next.js, take a look at the following resources:
