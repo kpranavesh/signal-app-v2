@@ -22,7 +22,7 @@ function escapeForSsml(text: string): string {
  * Uses edge-tts-universal (updated auth/compat). ElevenLabs backup: see elevenlabs-tts.backup.ts and AUDIO.md.
  */
 export async function POST(req: Request) {
-  const [user, authError] = await getAuthUser();
+  const [, authError] = await getAuthUser();
   if (authError) return authError;
 
   const { text } = await req.json();

@@ -4,6 +4,7 @@ import Parser from "rss-parser";
 import { unstable_noStore } from "next/cache";
 import { NextResponse } from "next/server";
 import { recommend } from "../../../../recommender/index";
+import type { Goal } from "../../../../recommender/types";
 import { getAuthUser } from "@/lib/supabase/auth";
 
 // Force dynamic rendering — no route-level caching
@@ -184,7 +185,7 @@ async function loadArticles(): Promise<Article[]> {
 }
 
 export async function GET(req: Request) {
-  const [user, authError] = await getAuthUser();
+  const [, authError] = await getAuthUser();
   if (authError) return authError;
 
   unstable_noStore();
@@ -199,7 +200,7 @@ export async function GET(req: Request) {
   const articles = await loadArticles();
 
   const ranked = recommend(
-    { role, industry, comfort, goal: goal as any, aiTools },
+    { role, industry, comfort, goal: goal as Goal, aiTools },
     articles,
     8,
   );

@@ -149,15 +149,6 @@ const GOAL_OPTIONS: { value: Goal; label: string }[] = [
   { value: "curiosity", label: "Feed my general curiosity about AI" },
 ];
 
-const TOPICS = [
-  "AI tools for writing",
-  "AI for images & video",
-  "Productivity & automation",
-  "Strategy & industry shifts",
-  "Ethics & regulation",
-  "Chips & infrastructure",
-];
-
 const STATIC_BRIEFING_EXAMPLES: BriefingItem[] = [
   {
     id: "static-sora",
@@ -551,7 +542,7 @@ export default function Home() {
         }
         const data = await res.json();
         const rawItems = Array.isArray(data.items) ? data.items : [];
-        const items: BriefingItem[] = rawItems.map((item: any) => ({
+        const items: BriefingItem[] = rawItems.map((item: Record<string, unknown>) => ({
           id: String(item?.id ?? ""),
           title: String(item?.title ?? ""),
           topic: String(item?.topic ?? ""),
@@ -781,10 +772,10 @@ export default function Home() {
               <div className="mb-4 flex items-center justify-between gap-4">
                 <div>
                   <h2 className="text-xl font-semibold text-slate-50 sm:text-2xl">
-                    Let's personalise your briefing
+                    Let&apos;s personalise your briefing
                   </h2>
                   <p className="mt-1 text-sm text-slate-300 sm:text-sm">
-                    Three quick questions and we'll filter the noise for you.
+                    Three quick questions and we&apos;ll filter the noise for you.
                   </p>
                 </div>
                 <div className="flex items-center gap-1 text-sm text-slate-400">
@@ -943,7 +934,7 @@ export default function Home() {
                       Which AI tools do you already use?
                     </label>
                     <p className="mt-1 text-sm text-slate-400">
-                      Select all that apply — Distill won't waste your time with "have you tried X?" if you already use it.
+                      Select all that apply — Distill won&apos;t waste your time with &quot;have you tried X?&quot; if you already use it.
                     </p>
                     <div className="mt-3 flex flex-wrap gap-2">
                       {AI_TOOLS.map((tool) => {
@@ -1022,7 +1013,7 @@ export default function Home() {
                   </li>
                   <li>
                     <span className="mr-1 text-emerald-400">•</span>
-                    A chat where you can ask "wait, what does this mean for me?" in plain English.
+                    A chat where you can ask &quot;wait, what does this mean for me?&quot; in plain English.
                   </li>
                   <li>
                     <span className="mr-1 text-emerald-400">•</span>
@@ -1032,11 +1023,11 @@ export default function Home() {
               </div>
               <div className="rounded-2xl bg-slate-900/80 px-4 py-3 text-sm text-slate-300 ring-1 ring-slate-700/80">
                 <p className="font-medium text-slate-100">
-                  "There’s a million AI updates a week.
+                  &quot;There&apos;s a million AI updates a week.
                 </p>
                 <p className="mt-1">
                   Distill tells you which three actually matter to you — and what
-                  to do about them."
+                  to do about them.&quot;
                 </p>
               </div>
             </div>
@@ -1075,8 +1066,8 @@ export default function Home() {
                   <div>
                     <h3 className="text-sm font-semibold text-slate-50">🎧 Listen to your briefing</h3>
                     <p className="mt-1 text-sm text-slate-300">
-                      Rather read it than scroll through it? Hit play and we'll walk you through
-                      today's updates with a natural-sounding voice. Play or pause anytime.
+                      Rather read it than scroll through it? Hit play and we&apos;ll walk you through
+                      today&apos;s updates with a natural-sounding voice. Play or pause anytime.
                     </p>
                   </div>
                   <audio
@@ -1323,9 +1314,9 @@ export default function Home() {
                     One thing to try this week
                   </p>
                   <p className="mt-1">
-                    Don’t try to "learn AI" all at once. Pick one meeting, one
+                    Don&apos;t try to &quot;learn AI&quot; all at once. Pick one meeting, one
                     doc, or one email where you think AI could help — and just
-                    try it there. That’s your whole experiment for the week.
+                    try it there. That&apos;s your whole experiment for the week.
                   </p>
                 </div>
               </section>
@@ -1339,7 +1330,7 @@ export default function Home() {
                       Got questions? Ask Distill anything.
                     </h2>
                     <p className="mt-1 text-sm text-slate-400">
-                      No jargon, no judgment. "What does this mean for my job?" is
+                      No jargon, no judgment. &quot;What does this mean for my job?&quot; is
                       a great place to start.
                     </p>
                   </div>
@@ -1349,12 +1340,12 @@ export default function Home() {
                         <p>
                           Try asking:{" "}
                           <span className="font-medium text-slate-100">
-                            "Where should I start with AI given my role?"
+                            &quot;Where should I start with AI given my role?&quot;
                           </span>{" "}
                           or{" "}
                           <span className="font-medium text-slate-100">
-                            "Explain the first briefing item like I’m brand new to
-                            AI."
+                            &quot;Explain the first briefing item like I&apos;m brand new to
+                            AI.&quot;
                           </span>
                         </p>
                       </div>
